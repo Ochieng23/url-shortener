@@ -1,22 +1,18 @@
-import os
-import re
-from flask_cors import CORS
+from flask import Flask, request, jsonify, redirect
+from flask_cors import CORS, cross_origin
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, redirect, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import base64
-
+import re
+import os
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})   # Adjust the origin as needed
+# CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app, support_credentials=True)
+# Adjust the origin as needed
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///mydb.db"
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    return response
 
 class Url(db.Model):
     __tablename__ = 'urls'
@@ -40,14 +36,27 @@ def is_valid_url(url):
     regex = r"^(?:http|https)://\S+\.\S+$"
     return bool(re.match(regex, url))
 
+@app.after_request
+def after_request(response):
+    if response.status_code == 302 and response.location:
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
+
+
 @app.route('/<path:generatedKey>', methods=['GET'])
+@cross_origin(supports_credentials=True)
 def fetch_from_database(generatedKey):
     # Assuming `generatedKey` corresponds to the `short_code` in your database
     url = Url.query.filter_by(short_code=generatedKey).first()
     if not url:
         return '404 not found'
 
-    return redirect(url.original_url)
+    response = redirect(url.original_url)
+    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'  # Allow requests from your frontend origin
+    return response
+
 
 
 @app.route('/create', methods=['POST'])

@@ -40,15 +40,15 @@ def is_valid_url(url):
     regex = r"^(?:http|https)://\S+\.\S+$"
     return bool(re.match(regex, url))
 
-@app.route('/<short_code>')
-def redirect_to_original_url(short_code):
-    url = Url.query.filter_by(short_code=short_code).first()
-    if url:
-        url.clicks += 1
-        db.session.commit()
-        return redirect(url.original_url)
-    else:
-        abort(404)
+@app.route('/<path:generatedKey>', methods=['GET'])
+def fetch_from_database(generatedKey):
+    # Assuming `generatedKey` corresponds to the `short_code` in your database
+    url = Url.query.filter_by(short_code=generatedKey).first()
+    if not url:
+        return '404 not found'
+
+    return redirect(url.original_url)
+
 
 @app.route('/create', methods=['POST'])
 def create_short_url():
